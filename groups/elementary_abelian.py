@@ -19,7 +19,7 @@ class SemidirectProductElementEAG(Element):
         return self.parent()(new_g, new_x)
 
     def __hash__(self):
-        return hash((self.g, self.x))
+        return hash((tuple(self.g), self.x))
 
     def __eq__(self, other):
         if not isinstance(other, SemidirectProductElementEAG):

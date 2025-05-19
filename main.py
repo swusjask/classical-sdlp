@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+"""
+Main script for testing classical algorithms on the Semidirect Discrete Logarithm Problem.
+Implements BSGS for DLP and SDLP across different platform groups.
+"""
+
+import time
+from random import randint
+from sage.all import sqrt, GF, EllipticCurve, random_prime, diagonal_matrix, random_matrix, gcd, Zmod, matrix
+
+from bsgs import bsgs_dlp, bsgs_sdlp
+from period import find_period
+from groups.finite_field import SemidirectProductZp
+from groups.elementary_abelian import SemidirectProductEAG
+
+def test_finite_field():
+    """Test DLP and SDLP on multiplicative group of finite fields."""
+    print("=== Finite Field F_p* ===")
+    p = random_prime(2**35)
+    print(f"Testing with p = {p}")
+    
+    # Test standard DLP in F_p*
+    print("\n--- Standard DLP ---")
+    Fp = GF(p)
+    g = Fp.multiplicative_generator()
+    print(f"order of g = {g.multiplicative_order()}")
+    t = randint(1, p-1)
+    h = g**t
+    
+    start_time = time.time()
+    found_t = bsgs_dlp(Fp, h, g, p-1, operation="*")
+    dlp_time = time.time() - start_time
+    print(f"DLP: Found t = {found_t}, expected = {t}, correct = {found_t == t}")
+    print(f"DLP time: {dlp_time:.4f}s")
+    print(f"Order bound")
+    
+    # Test SDLP in F_p* ⋊ Aut(F_p*)
+    print("\n--- SDLP ---")
+    G = SemidirectProductZp(p)
+    base_elem = G.random_element()
+    
+    # Find actual period
+    print("Finding actual period...")
+    rk = base_elem.x.multiplicative_order() * gcd(base_elem.x - 1, p-1)
+    period = find_period(base_elem, rk)  # Use upper bound from theorem
+    print(f"Period r = {period}")
+    assert base_elem**period == G.one()
+    
+    # Create SDLP instance
+    t = randint(1, period-1)
+    target = base_elem**t
+    
+    # Set up u = (g, σ), v = (1, σ^-1)
+    u = base_elem
+    v = G(1, pow(base_elem.x, -1, p-1))
+    w = target
+    w.x = Zmod(p-1)(1)
+    
+    start_time = time.time()
+    found_t = bsgs_sdlp(G, target, (u, v), period)
+    sdlp_time = time.time() - start_time
+    print(f"SDLP: Found t = {found_t}, expected = {t}, correct = {found_t == t}")
+    print(f"SDLP time: {sdlp_time:.4f}s")
+
+def test_elliptic_curve():
+    """Test DLP on elliptic curves (SDLP is O(1) so excluded)."""
+    print("\n=== Elliptic Curve E(F_p) ===")
+    p = random_prime(2**16)
+    E = EllipticCurve(GF(p), [0, 1])  # y^2 = x^3 + 1
+    print(f"Testing with p = {p}, curve order = {E.order()}")
+    
+    # Test standard DLP
+    print("\n--- Standard DLP ---")
+    P = E.random_element()
+    while P.is_zero():
+        P = E.random_element()
+    
+    t = randint(1, 1000)
+    Q = t * P
+    
+    start_time = time.time()
+    found_t = bsgs_dlp(E, Q, P, E.order(), operation="+")
+    dlp_time = time.time() - start_time
+    print(f"DLP: Found t = {found_t}, expected = {t}, correct = {found_t == t}")
+    print(f"DLP time: {dlp_time:.4f}s")
+    print("SDLP: Skipped (O(1) complexity due to small automorphism group)")
+
+def test_elementary_abelian():
+    """Test SDLP on elementary abelian groups (DLP is O(1) so excluded)."""
+    print("\n=== Elementary Abelian Group F_p^n ===")
+    p = random_prime(2**8)  # Smaller p for manageable computation
+    n = 3
+    print(f"Testing with p = {p}, n = {n}")
+    
+    G = SemidirectProductEAG(p, n)
+    print("DLP: Skipped (O(1) complexity in vector spaces)")
+    
+    # Test SDLP
+    print("\n--- SDLP ---")
+    
+    # Create element with matrix having no eigenvalue 1
+    print("\nCase 1: Matrix without eigenvalue 1")
+    while True:
+        A = G._M.random_element()
+        if 1 not in matrix(A).eigenvalues():
+            break
+
+    base_elem = G(G._V.random_element(), A)
+    
+    # Find period
+    matrix_order = A.order()
+    period = find_period(base_elem, matrix_order)
+    assert base_elem**period == G.one()
+    print(f"Matrix order: {matrix_order}, Period: {period}")
+    
+    # Create SDLP instance  
+    t = randint(1, period - 1)
+    target = base_elem**t
+    
+    u = base_elem
+    v = G(G._V.zero(), A**(-1))
+    w = target
+    w.x = G._M.one()
+    
+    start_time = time.time()
+    found_t = bsgs_sdlp(G, target, (u, v), period)
+    sdlp_time = time.time() - start_time
+    print(f"SDLP: Found t = {found_t}, expected = {t}, correct = {found_t == t}")
+    print(f"SDLP time: {sdlp_time:.4f}s")
+    print(f"Complexity: O(√{period}) = O({int(sqrt(period))})")
+    
+    # Test with matrix having eigenvalue 1
+    print("\nCase 2: Matrix with eigenvalue 1")
+    # Create matrix with eigenvalue 1 in first position
+    D = diagonal_matrix(GF(p), [1] + [randint(2, p-1) for _ in range(n-1)])
+    P_mat = random_matrix(GF(p), n)
+    while P_mat.det() == 0:
+        P_mat = random_matrix(GF(p), n)
+    A_with_one = G._M(P_mat**(-1) * D * P_mat)
+    
+    base_elem = G(G._V.random_element(), A_with_one)
+    
+    # Period can be larger due to eigenvalue 1
+    matrix_order = A_with_one.order()
+    period = find_period(base_elem, p * matrix_order)
+    print(f"Matrix order: {matrix_order}, Period: {period}")
+    
+    t = randint(1, period - 1)
+    target = base_elem**t
+    
+    u = base_elem
+    v = G(G._V.zero(), A_with_one**(-1))
+    w = target
+    w.x = G._M.one()
+    
+    start_time = time.time()
+    found_t = bsgs_sdlp(G, target, (u, v), period)
+    sdlp_time = time.time() - start_time
+    print(f"SDLP: Found t = {found_t}, expected = {t}, correct = {found_t == t}")
+    print(f"SDLP time: {sdlp_time:.4f}s")
+    print(f"Complexity: O(√{period}) = O({int(sqrt(period))})")
+
+def main():
+    """Run all tests comparing DLP and SDLP complexities."""
+    print("Classical Algorithms for Semidirect Discrete Logarithm Problem")
+    print("=" * 60)
+    
+    test_finite_field()
+    test_elliptic_curve()
+    test_elementary_abelian()
+    
+    print("\n" + "=" * 60)
+    print("Summary for all bsgs implementation:")
+    print("- Finite fields: DLP (O(√p)), SDLP (O(√p))")
+    print("- Elliptic curves: DLP (O(√p)), SDLP (O(1))")
+    print("- Elementary abelian: DLP (O(1)), SDLP (O(p^(n/2)) or O(p^(n/2+1)))")
+
+if __name__ == "__main__":
+    main()

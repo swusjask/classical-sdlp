@@ -19,12 +19,12 @@ def bsgs_dlp(G, h, g, bound, operation="*"):
     T = {}
     
     if operation == "*":
-        temp = G.one()
+        temp = G(1)
         for i in range(m):
             T[temp] = i
             temp = temp * g
         
-        gm_inv = g^(-m)
+        gm_inv = g**(-m)
         temp = h
         for i in range(m):
             if temp in T:
@@ -32,7 +32,7 @@ def bsgs_dlp(G, h, g, bound, operation="*"):
             temp = temp * gm_inv
     
     elif operation == "+":
-        temp = G.zero()
+        temp = G(0)
         for i in range(m):
             T[temp] = i
             temp = temp + g
@@ -67,15 +67,14 @@ def bsgs_sdlp(G, w, base, bound):
     
     u, v = base
     m = ceil(sqrt(bound))
-    
     T = {}
     temp = G.one()
     for j in range(m):
         T[temp] = j
         temp = u * temp * v
     
-    um_inv = u^(-m)
-    vm_inv = v^(-m)
+    um_inv = u**(-m)
+    vm_inv = v**(-m)
     
     temp = w
     for i in range(m):

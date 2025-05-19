@@ -1,6 +1,8 @@
-def find_period(g, n, G):
+from sage.all import ZZ
+
+def find_period(u, n):
     """
-    Finds the period of the cycle X_{g,sigma} for a given element (g, sigma)
+    Finds the period of the cycle X_{g,sigma} for a given element (g, sigma) := u
     in a semidirect product group.
     
     Args:
@@ -10,9 +12,7 @@ def find_period(g, n, G):
     Returns:
         The period r of the cycle
     """
-    u = G.one()
-    u.g = g
-    length = n
+    length = ZZ(n)
     for p, e in length.factor():
         while e > 0:
             l = length // p

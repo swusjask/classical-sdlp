@@ -8,7 +8,7 @@ class SemidirectProductElementEC(Element):
         self.x = x
         
     def _repr_(self):
-        return f"({self.g}, {self.x})"
+        return f"({self.g}, {self.x.rational_maps()})"
         
     def _mul_(self, other):
         g1, x1 = self.g, self.x
@@ -27,7 +27,7 @@ class SemidirectProductElementEC(Element):
         return self.g == other.g and self.x == other.x
     
     def __invert__(self):
-        new_x = self.x^-1
+        new_x = self.x**-1
         new_g = -new_x(self.g)
         
         return self.parent()(new_g, new_x)
@@ -68,3 +68,46 @@ class SemidirectProductEC(Parent, UniqueRepresentation):
     
     def one(self):
         return self(self._E(0), self._E.automorphisms()[0])
+
+if __name__ == "__main__":
+    from sage.all import EllipticCurve, GF, random_prime
+
+    p = random_prime(2 ** 30)
+    E = EllipticCurve(GF(p), [0, 1])  # y^2 = x^3 + 1
+    G = SemidirectProductEC(E)
+    print(f"Created group: {G}")
+    print(f"Elliptic curve: {E}")
+    print(f"j-invariant: {E.j_invariant()}")
+    print(f"Automorphism group size: {len(E.automorphisms())}")
+    print(f"Curve order: {E.order()}\n")
+    
+    # Generate random element with non identity automorphism
+    while True:
+        a = G.random_element()
+        if a.x != G.one().x:
+            break
+    print(f"Random element: {a}\n")
+    
+    # Test group properties
+    print(f"Group order: {G.order()}")
+    print(f"Identity element: {G.one()}\n")
+    
+    # Test invertibility
+    a_inv = ~a
+    print(f"Inverse of {a} is {a_inv}")
+    print(f"a * a^(-1) == 1: {a * a_inv == G.one()}\n")
+    
+    # Generate another element and test multiplication
+    b = G.random_element()
+    print(f"Another random element: {b}")
+    print(f"a * b = {a * b}\n")
+    
+    # Verify associativity with a small test
+    c = G.random_element()
+    print(f"(a * b) * c == a * (b * c): {(a * b) * c == a * (b * c)}\n")
+    
+    # Verify theorem 9, all possible order of autormophism always divide 24
+    rk = 24
+    print(f"s_g,x({rk}) == 1: {a**(rk) == G.one()}")
+
+        

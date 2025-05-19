@@ -73,7 +73,7 @@ class SemidirectProductZp(Parent, UniqueRepresentation):
         return self(1, 1)
 
 if __name__ == "__main__":
-    p = random_prime(2 ** 20)
+    p = random_prime(2 ** 30)
     G = SemidirectProductZp(p)
     print(f"Created group: {G}\n")
     
@@ -103,5 +103,5 @@ if __name__ == "__main__":
     print(f"a^{G.order()} == 1: {a**G.order() == G.one()}\n")
 
     # Verify theorem 3
-    l = a.x.multiplicative_order() * gcd(a.x - 1, G._p - 1)
-    print(f"s_g,x({l}) == 1: {a**(l) == G.one()}")
+    rk = a.x.multiplicative_order() * gcd(a.x - 1, G._p - 1)
+    print(f"s_g,x({rk}) == 1: {a**(rk) == G.one()}")

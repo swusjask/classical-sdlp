@@ -1,7 +1,7 @@
 from sage.all import GF, GL, VectorSpace, Parent, UniqueRepresentation, Groups
 from sage.structure.element import Element
 
-class SemidirectProductElementEAG(Element):
+class SemidirectProductElementEA(Element):
     def __init__(self, parent, g, x):
         Element.__init__(self, parent)
         self.g = g
@@ -22,7 +22,7 @@ class SemidirectProductElementEAG(Element):
         return hash((tuple(self.g), self.x))
 
     def __eq__(self, other):
-        if not isinstance(other, SemidirectProductElementEAG):
+        if not isinstance(other, SemidirectProductElementEA):
             return False
         return self.g == other.g and self.x == other.x
     
@@ -32,8 +32,8 @@ class SemidirectProductElementEAG(Element):
         
         return self.parent()(new_g, new_x)
 
-class SemidirectProductEAG(Parent, UniqueRepresentation):
-    Element = SemidirectProductElementEAG
+class SemidirectProductEA(Parent, UniqueRepresentation):
+    Element = SemidirectProductElementEA
     
     def __init__(self, p, n):
         """
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     # Initialize test parameters
     p = random_prime(2 ** 30) 
     n = 7  # Vector space dimension
-    G = SemidirectProductEAG(p, n)
+    G = SemidirectProductEA(p, n)
     print(f"Created group: {G}\n")
     
     # Generate random element

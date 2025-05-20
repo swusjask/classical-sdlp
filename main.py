@@ -7,14 +7,12 @@ Implements BSGS for DLP and SDLP across different platform groups.
 import time
 from random import randint
 from sage.all import (
-    sqrt,
     GF,
     EllipticCurve,
     random_prime,
     diagonal_matrix,
     random_matrix,
     gcd,
-    Zmod,
     matrix,
 )
 
@@ -28,24 +26,25 @@ def test_finite_field(p=None):
     """Test DLP and SDLP on multiplicative group of finite fields."""
     print("=== Finite Field Fp* ===")
     if p is None:
-        p = random_prime(2**35)
+        p = random_prime(2**35, lbound=2**34)
     print(f"Testing with p = {p}")
 
     # Test standard DLP in Fp*
     print("\n--- Standard DLP ---")
     Fp = GF(p)
-    g = Fp.multiplicative_generator()
-    print(f"order of g = {g.multiplicative_order()}")
-    t = 2 * randint(1, p - 1)
+    g = Fp.random_element()
+    order = g.multiplicative_order()
+    print(f"order of g = {order}")
+    t = 100 * randint(1, order)
     h = g**t
 
     start_time = time.time()
-    found_t = bsgs_dlp(Fp, h, g, p - 1, operation="*")
+    found_t = bsgs_dlp(Fp, h, g, order, operation="*")
     dlp_time = time.time() - start_time
     print(
-        f"DLP: Found t = {found_t}, expected = {t % (p-1)}"
+        f"DLP: Found t = {found_t}, expected = {t % order}"
     )
-    assert found_t == t % (p - 1)
+    assert found_t == t % order
     print(f"DLP time: {dlp_time:.4f}s")
 
     # Test SDLP in Fp* ⋊ Aut(Fp*)
@@ -58,33 +57,32 @@ def test_finite_field(p=None):
     rk = base_elem.x.multiplicative_order() * gcd(base_elem.x - 1, p - 1)
     period = find_period(base_elem, rk)  # Use upper bound from theorem
     print(f"Period r = {period}")
-    assert base_elem**period == G.one()
+    assert (base_elem**period).g == G.one().g
 
     # Create SDLP instance
-    t = 2 * randint(1, period - 1)
+    t = 100 * randint(1, period - 1)
     target = base_elem**t
 
     # Set up u = (g, σ), v = (1, σ^-1)
     u = base_elem
     v = G(1, pow(base_elem.x, -1, p - 1))
-    w = target
-    w.x = Zmod(p - 1)(1)
+    w = G.one()
+    w.g = target.g
 
     start_time = time.time()
-    found_t = bsgs_sdlp(G, target, (u, v), period)
+    found_t = bsgs_sdlp(G, w, (u, v), period)
     sdlp_time = time.time() - start_time
     print(
-        f"SDLP: Found t = {found_t}, expected = {t % period}, correct = {found_t == t % period}"
+        f"SDLP: Found t = {found_t}, expected = {t % period}"
     )
     assert found_t == t % period
     print(f"SDLP time: {sdlp_time:.4f}s")
-
 
 def test_elliptic_curve(p=None):
     """Test DLP on elliptic curves (SDLP is O(1) so excluded)."""
     print("\n=== Elliptic Curve E(F_p) ===")
     if p is None:
-        p = random_prime(2**16)
+        p = random_prime(2**30, lbound=2**29)
     E = EllipticCurve(GF(p), [0, 1])  # y^2 = x^3 + 1
     print(f"Testing with p = {p}, curve order = {E.order()}")
 
@@ -95,7 +93,7 @@ def test_elliptic_curve(p=None):
         P = E.random_element()
     order = P.order()
     print(f"order of P = {order}")
-    t = 2 * randint(1, order - 1)
+    t = 100 * randint(1, order - 1)
     Q = t * P
 
     start_time = time.time()
@@ -113,7 +111,7 @@ def test_elementary_abelian(p=None, n=3):
     """Test SDLP on elementary abelian groups (DLP is O(1) so excluded)."""
     print("\n=== Elementary Abelian Group F_p^n ===")
     if p is None:
-        p = random_prime(2**10)
+        p = random_prime(2**9, lbound=2**8)
     print(f"Testing with p = {p}, n = {n}")
 
     G = SemidirectProductEA(p, n)
@@ -135,20 +133,20 @@ def test_elementary_abelian(p=None, n=3):
     # Find period
     matrix_order = A.order()
     period = find_period(base_elem, matrix_order)
-    assert base_elem**period == G.one()
+    assert (base_elem**period).g == G.one().g
     print(f"Matrix order: {matrix_order}, Period: {period}")
 
     # Create SDLP instance
-    t = 2 * randint(1, period - 1)
+    t = 100 * randint(1, period - 1)
     target = base_elem**t
 
     u = base_elem
     v = G(G._V.zero(), A ** (-1))
-    w = target
-    w.x = G._M.one()
+    w = G.one()
+    w.g = target.g
 
     start_time = time.time()
-    found_t = bsgs_sdlp(G, target, (u, v), period)
+    found_t = bsgs_sdlp(G, w, (u, v), period)
     sdlp_time = time.time() - start_time
     print(f"SDLP: Found t = {found_t}, expected = {t % period}")
     assert found_t == t % period
@@ -170,18 +168,19 @@ def test_elementary_abelian(p=None, n=3):
     period = find_period(base_elem, p * matrix_order)
     print(f"Matrix order: {matrix_order}, Period: {period}")
 
-    t = randint(1, period - 1)
+    t = 100 * randint(1, period - 1)
     target = base_elem**t
 
     u = base_elem
     v = G(G._V.zero(), A_with_one ** (-1))
-    w = target
-    w.x = G._M.one()
+    w = G.one()
+    w.g = target.g
 
     start_time = time.time()
-    found_t = bsgs_sdlp(G, target, (u, v), period)
+    found_t = bsgs_sdlp(G, w, (u, v), period)
     sdlp_time = time.time() - start_time
-    print(f"SDLP: Found t = {found_t}, expected = {t}, correct = {found_t == t}")
+    print(f"SDLP: Found t = {found_t}, expected = {t % period}")
+    assert found_t == t % period
     print(f"SDLP time: {sdlp_time:.4f}s")
 
 

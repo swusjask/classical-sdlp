@@ -16,7 +16,7 @@ def find_period(u, n):
     for p, e in length.factor():
         while e > 0:
             l = length // p
-            if u**l == u.parent().one():
+            if (u**l).g == u.parent().one().g:
                 length //= p
                 e -= 1
             else:
